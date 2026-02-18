@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小O滴滴 - 智能出行</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        /* --- 动态主题变量 --- */
+        :root[data-theme="light"] {
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --primary-orange: #ff7d41;
+            --primary-hover: #e66a30;
+            --text-main: #333333;
+            --text-sub: #888888;
+            --bubble-user: #ffeadd;
+            --bubble-ai: #f7f7f7;
+            --map-grid-color: rgba(0,0,0,0.05);
+            --header-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            --input-bg: #f9f9f9;
+        }
+
+        :root[data-theme="dark"] {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --primary-orange: #ff9100; /* 荧光橙 */
+            --primary-hover: #ffab40;
+            --text-main: #e0e0e0;
+            --text-sub: #aaaaaa;
+            --bubble-user: #4a2c20; /* 深褐 */
+            --bubble-ai: #2c2c2c;   /* 深灰 */
+            --map-grid-color: rgba(255,255,255,0.05);
+            --header-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            --input-bg: #2c2c2c;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-color);
+            /* 模拟地图网格背景 */
+            background-image:
+                    linear-gradient(var(--map-grid-color) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--map-grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+            color: var(--text-main);
+            height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+            transition: background 0.3s;
+        }
+
+        /* --- 顶部信息栏 (模拟APP头部) --- */
+        .header-bar {
+            width: 100%; max-width: 600px; padding: 15px 20px;
+            background: var(--card-bg);
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: var(--header-shadow);
+            z-index: 100;
+        }
+        .app-title { font-weight: 800; font-size: 1.1rem; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .app-title i { color: var(--primary-orange); }
+
+        .status-pill {
+            background: rgba(255, 125, 65, 0.1); color: var(--primary-orange);
+            padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .radar-anim {
+            width: 8px; height: 8px; background: var(--primary-orange); border-radius: 50%;
+            animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+
+        /* 主题按钮 */
+        .icon-btn {
+            background: none; border: none; color: var(--text-main); font-size: 1.1rem; cursor: pointer;
+            padding: 5px; transition: transform 0.2s;
+        }
+        .icon-btn:hover { transform: scale(1.1); color: var(--primary-orange); }
+
+        /* --- 聊天卡片 --- */
+        .chat-container {
+            flex: 1; width: 100%; max-width: 600px;
+            display: flex; flex-direction: column; overflow: hidden;
+            position: relative;
+        }
+
+        .messages-area {
+            flex: 1; padding: 20px; overflow-y: auto; scroll-behavior: smooth;
+        }
+
+        .message-row { display: flex; margin-bottom: 20px; gap: 10px; }
+        .message-row.user { justify-content: flex-end; }
+
+        .avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .avatar.ai { background: var(--card-bg); color: var(--primary-orange); }
+        .avatar.user { background: var(--primary-orange); color: #fff; }
+
+        .bubble {
+            max-width: 75%; padding: 12px 16px; border-radius: 16px;
+            font-size: 0.95rem; line-height: 1.5; position: relative;
+            background: var(--bubble-ai); box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .message-row.user .bubble {
+            background: var(--bubble-user);
+            border-top-right-radius: 4px;
+        }
+        .message-row.ai .bubble {
+            border-top-left-radius: 4px;
+        }
+
+        /* 订单卡片特定样式 */
+        .order-card {
+            border-left: 4px solid var(--primary-orange);
+            background: var(--card-bg); padding: 10px; margin-top: 5px;
+            border-radius: 4px; font-size: 0.9rem;
+        }
+
+        /* --- 底部控制区 --- */
+        .bottom-panel {
+            width: 100%; max-width: 600px;
+            background: var(--card-bg);
+            border-radius: 20px 20px 0 0;
+            padding: 20px; box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+        }
+
+        /* 快捷标签 */
+        .quick-tags {
+            display: flex; gap: 10px; overflow-x: auto; padding-bottom: 15px;
+            scrollbar-width: none; /* Firefox */
+        }
+        .quick-tags::-webkit-scrollbar { display: none; }
+
+        .tag {
+            white-space: nowrap; padding: 8px 15px; border-radius: 20px;
+            background: var(--bg-color); color: var(--text-sub); font-size: 0.85rem;
+            cursor: pointer; border: 1px solid transparent; transition: all 0.2s;
+        }
+        .tag:hover {
+            border-color: var(--primary-orange); color: var(--primary-orange); background: rgba(255, 125, 65, 0.05);
+        }
+        .tag i { margin-right: 4px; }
+
+        /* 输入框 */
+        .input-group {
+            display: flex; align-items: center; gap: 10px;
+            background: var(--input-bg); padding: 8px 8px 8px 20px;
+            border-radius: 30px; border: 1px solid transparent;
+            transition: 0.3s;
+        }
+        .input-group:focus-within { border-color: var(--primary-orange); background: var(--card-bg); }
+
+        #promptInput {
+            flex: 1; border: none; background: transparent; outline: none;
+            color: var(--text-main); font-size: 1rem;
+        }
+
+        .send-btn {
+            width: 40px; height: 40px; background: var(--primary-orange);
+            border-radius: 50%; border: none; color: white; font-size: 1.1rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .send-btn:hover { transform: scale(1.05); background: var(--primary-hover); }
+
+    </style>
+</head>
+<body>
+
+<div class="header-bar">
+    <div style="display:flex; align-items:center; gap:15px;">
+        <a href="/index.html" class="icon-btn"><i class="fas fa-arrow-left"></i></a>
+        <div class="app-title"><i class="fas fa-taxi"></i> 小O滴滴</div>
+    </div>
+
+    <div class="status-pill">
+        <div class="radar-anim"></div>
+        附近有 12 辆车
+    </div>
+
+    <button class="icon-btn" onclick="toggleTheme()"><i class="fas fa-adjust"></i></button>
+</div>
+
+<div class="chat-container">
+    <div class="messages-area" id="messagesArea">
+        <div class="message-row ai">
+            <div class="avatar ai"><i class="fas fa-robot"></i></div>
+            <div class="bubble">您好！我是您的智能调度员。要去哪里？告诉我起点和终点，马上为您派车！🚗</div>
+        </div>
+    </div>
+</div>
+
+<div class="bottom-panel">
+    <div class="quick-tags">
+        <div class="tag" onclick="quickFill('我要从公司去三里屯')"><i class="fas fa-briefcase"></i> 公司 -> 三里屯</div>
+        <div class="tag" onclick="quickFill('帮我查一下我的订单状态')"><i class="fas fa-search"></i> 查询订单</div>
+        <div class="tag" onclick="quickFill('取消刚才的订单')"><i class="fas fa-times-circle"></i> 取消订单</div>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="promptInput" placeholder="输入您的需求..." autocomplete="off">
+        <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
+
+<script>
+    // --- 主题切换逻辑 (通用) ---
+    let currentTheme = localStorage.getItem('ordish_theme') ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    function toggleTheme() {
+        currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        localStorage.setItem('ordish_theme', currentTheme);
+    }
+
+    // --- 业务逻辑 ---
+    const messagesArea = document.getElementById('messagesArea');
+    const promptInput = document.getElementById('promptInput');
+    const DIDI_CHAT_ID = "didi_user_001";
+
+    promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+    function quickFill(text) {
+        promptInput.value = text;
+        sendMessage();
+    }
+
+    async function sendMessage() {
+        const text = promptInput.value.trim();
+        if (!text) return;
+
+        appendMessage('user', text);
+        promptInput.value = '';
+
+        // loading 状态
+        const loadingId = Date.now();
+        appendMessage('ai', '<i class="fas fa-circle-notch fa-spin"></i> 正在连接调度系统...', loadingId);
+
+        let fullText = '';
+        try {
+            const response = await fetch(`/ai/didi?prompt=${encodeURIComponent(text)}&chatId=${DIDI_CHAT_ID}`);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let isFirst = true;
+
+            const bubbleDiv = document.getElementById('bubble-' + loadingId);
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (isFirst) { bubbleDiv.innerHTML = ''; isFirst = false; }
+
+                fullText += decoder.decode(value, { stream: true });
+                bubbleDiv.innerHTML = marked.parse(fullText);
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            }
+        } catch (err) {
+            document.getElementById('bubble-' + loadingId).innerText = "网络错误，请稍后重试。";
+        }
+    }
+
+    function appendMessage(role, html, id = null) {
+        const row = document.createElement('div');
+        row.className = `message-row ${role}`;
+
+        const avatar = document.createElement('div');
+        avatar.className = `avatar ${role}`;
+        avatar.innerHTML = role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        if (id) bubble.id = 'bubble-' + id;
+        bubble.innerHTML = html;
+
+        if (role === 'ai') { row.appendChild(avatar); row.appendChild(bubble); }
+        else { row.appendChild(bubble); row.appendChild(avatar); }
+
+        messagesArea.appendChild(row);
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+</script>
+</body>
+</html>

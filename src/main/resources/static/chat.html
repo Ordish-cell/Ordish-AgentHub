@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - Ordish AI</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* --- 原有样式保持不变 --- */
+        .app-layout { display: flex; height: 100vh; width: 100vw; }
+        .sidebar { width: 260px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 10px; transition: width 0.3s; }
+        .sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border: none; }
+        .new-chat-btn { background-color: var(--bg-hover); color: var(--text-sub); border: none; border-radius: 20px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 20px; font-size: 0.9rem; transition: 0.2s; }
+        .new-chat-btn:hover { background-color: var(--border-color); color: var(--text-main); }
+        .history-list { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+        .history-item { padding: 10px 15px; border-radius: 20px; color: var(--text-main); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem; margin-bottom: 5px; position: relative;}
+        .history-item:hover { background-color: var(--bg-hover); }
+        .history-item.active { background-color: var(--user-msg-bg); color: var(--user-msg-text); }
+        .delete-chat { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity 0.2s; color: inherit; z-index: 2; padding: 5px; }
+        .history-item:hover .delete-chat { opacity: 1; }
+        .sidebar-footer { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-color); }
+        .main-chat { flex: 1; display: flex; flex-direction: column; position: relative; background-color: var(--bg-body); }
+        .top-bar { padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
+        .model-name { font-weight: 600; color: var(--text-sub); display: flex; align-items: center; gap: 8px; }
+        #chat-container { flex: 1; overflow-y: auto; padding: 20px 0; display: flex; flex-direction: column; gap: 20px; }
+        .msg-wrapper { width: 100%; max-width: 900px; margin: 0 auto; padding: 0 20px; display: flex; }
+        .msg-wrapper.user { justify-content: flex-end; }
+        .msg-wrapper.user .msg-content { background-color: var(--bg-hover); color: var(--text-main); padding: 12px 18px; border-radius: 20px 20px 4px 20px; max-width: 80%; }
+        .msg-wrapper.ai { justify-content: flex-start; }
+        .msg-wrapper.ai .msg-content { background: none; padding: 0; width: 100%; line-height: 1.7; }
+        .msg-content { font-size: 1rem; word-wrap: break-word; }
+        .msg-content p { margin: 0 0 10px 0; }
+        .input-wrapper { max-width: 900px; width: 100%; margin: 0 auto 30px; padding: 0 20px; position: relative; }
+        .input-box { background-color: var(--input-bg); border-radius: 30px; padding: 15px 50px 15px 25px; display: flex; align-items: flex-end; }
+        #prompt-input { width: 100%; background: transparent; border: none; outline: none; color: var(--text-main); font-size: 1rem; resize: none; max-height: 150px; line-height: 1.5; }
+        .send-btn { position: absolute; right: 35px; bottom: 12px; background: none; border: none; color: var(--text-sub); cursor: pointer; font-size: 1.2rem; }
+        .send-btn:hover { color: var(--accent-color); }
+        .cursor { display: inline-block; width: 6px; height: 16px; background: var(--text-main); animation: blink 1s infinite; margin-left: 2px; vertical-align: middle;}
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @media (max-width: 768px) { .sidebar { position: absolute; z-index: 10; height: 100%; box-shadow: 2px 0 10px rgba(0,0,0,0.2); transform: translateX(-100%); } .sidebar.active { transform: translateX(0); } }
+
+        /* --- 新增模态框样式 --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; visibility: hidden; transition: all 0.3s ease;
+            backdrop-filter: blur(4px); /* 毛玻璃背景 */
+        }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+
+        .modal-box {
+            background: var(--bg-sidebar); color: var(--text-main);
+            padding: 25px; border-radius: 16px; width: 90%; max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            transform: scale(0.9); transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+        .modal-overlay.show .modal-box { transform: scale(1); }
+
+        .modal-header { font-size: 1.2rem; font-weight: 600; margin-bottom: 15px; }
+        .modal-body { color: var(--text-sub); margin-bottom: 25px; line-height: 1.5; }
+
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-modal {
+            padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; border: none; transition: 0.2s;
+        }
+        .btn-cancel { background: var(--bg-hover); color: var(--text-main); }
+        .btn-cancel:hover { background: var(--border-color); }
+        .btn-confirm { background: #ff4d4f; color: white; } /* 红色强调删除 */
+        .btn-confirm:hover { background: #ff7875; }
+    </style>
+</head>
+<body>
+
+<div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+        <button class="new-chat-btn" onclick="createNewChat()">
+            <i class="fas fa-plus"></i> 新对话
+        </button>
+        <div style="padding: 0 10px; margin-bottom: 10px; font-size: 0.8rem; color: var(--text-sub);">最近</div>
+        <ul class="history-list" id="history-list"></ul>
+        <div class="sidebar-footer">
+            <button class="btn-icon" onclick="location.href='/index.html'"><i class="fas fa-home"></i></button>
+        </div>
+    </aside>
+
+    <main class="main-chat">
+        <div class="top-bar">
+            <div style="display:flex; align-items:center;">
+                <button class="btn-icon" onclick="toggleSidebar()" style="margin-right:10px;"><i class="fas fa-bars"></i></button>
+                <div class="model-name">Ordish AI <span style="font-size:0.7em; background:var(--bg-hover); padding:2px 6px; border-radius:4px;">Beta</span></div>
+            </div>
+            <button class="btn-icon" onclick="toggleTheme()"><i class="fas fa-adjust"></i></button>
+        </div>
+
+        <div id="chat-container"></div>
+
+        <div class="input-wrapper">
+            <div class="input-box">
+                <textarea id="prompt-input" rows="1" placeholder="输入消息..."></textarea>
+                <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal-box">
+        <div class="modal-header">删除对话</div>
+        <div class="modal-body">确定要删除这条对话记录吗？此操作无法撤销。</div>
+        <div class="modal-footer">
+            <button class="btn-modal btn-cancel" onclick="closeModal()">取消</button>
+            <button class="btn-modal btn-confirm" onclick="confirmDelete()">删除</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    // --- 状态管理 ---
+    let allChats = JSON.parse(localStorage.getItem('ordish_chats')) || [];
+    let currentChatId = localStorage.getItem('ordish_current_id');
+    let chatIdToDelete = null; // 临时存储要删除的ID
+
+    if (!currentChatId || allChats.length === 0) {
+        createNewChat(false);
+    }
+
+    // --- 初始化渲染 ---
+    const container = document.getElementById('chat-container');
+    const input = document.getElementById('prompt-input');
+    const historyListEl = document.getElementById('history-list');
+    const deleteModal = document.getElementById('deleteModal');
+
+    renderSidebar();
+    loadChatContent(currentChatId);
+
+    // --- 核心功能函数 ---
+
+    function createNewChat(shouldRender = true) {
+        const newId = Date.now().toString();
+        const newChat = { id: newId, title: "新对话", messages: [] };
+        allChats.unshift(newChat);
+        currentChatId = newId;
+        saveData();
+        if (shouldRender) {
+            renderSidebar();
+            loadChatContent(newId);
+            if (window.innerWidth <= 768) toggleSidebar();
+        }
+    }
+
+    function switchChat(id) {
+        currentChatId = id;
+        localStorage.setItem('ordish_current_id', id);
+        renderSidebar();
+        loadChatContent(id);
+        if (window.innerWidth <= 768) toggleSidebar();
+    }
+
+    // 修改：点击删除按钮，只显示模态框
+    function deleteChat(e, id) {
+        e.stopPropagation();
+        chatIdToDelete = id; // 记录要删除的 ID
+        deleteModal.classList.add('show'); // 显示模态框
+    }
+
+    // 新增：关闭模态框
+    function closeModal() {
+        deleteModal.classList.remove('show');
+        chatIdToDelete = null;
+    }
+
+    // 新增：确认删除逻辑
+    function confirmDelete() {
+        if (!chatIdToDelete) return;
+
+        allChats = allChats.filter(c => c.id !== chatIdToDelete);
+
+        if (allChats.length === 0) {
+            createNewChat();
+        } else if (chatIdToDelete === currentChatId) {
+            currentChatId = allChats[0].id;
+            saveData();
+            renderSidebar();
+            loadChatContent(currentChatId);
+        } else {
+            saveData();
+            renderSidebar();
+        }
+        closeModal(); // 删除后关闭模态框
+    }
+
+    function renderSidebar() {
+        historyListEl.innerHTML = '';
+        allChats.forEach(chat => {
+            const li = document.createElement('li');
+            li.className = `history-item ${chat.id === currentChatId ? 'active' : ''}`;
+            // 注意：这里把 onclick 放在了 span 上，避免点击删除图标时触发切换
+            li.innerHTML = `
+                <i class="far fa-comment-dots"></i>
+                <span style="flex:1; overflow:hidden; text-overflow:ellipsis;" onclick="switchChat('${chat.id}')">${chat.title}</span>
+                <i class="fas fa-trash delete-chat" onclick="deleteChat(event, '${chat.id}')"></i>
+            `;
+            historyListEl.appendChild(li);
+        });
+    }
+
+    function loadChatContent(id) {
+        container.innerHTML = '';
+        const chat = allChats.find(c => c.id === id);
+        if (!chat || chat.messages.length === 0) {
+            addMessageToUI('ai', '你好！我是 Ordish AI 助手。请问今天有什么可以帮你的？');
+        } else {
+            chat.messages.forEach(msg => {
+                const el = addMessageToUI(msg.role, msg.content);
+                if(msg.role === 'ai') el.innerHTML = marked.parse(msg.content);
+            });
+        }
+    }
+
+    async function sendMessage() {
+        const text = input.value.trim();
+        if (!text) return;
+        addMessageToUI('user', text);
+        input.value = '';
+        input.style.height = 'auto';
+        const activeChat = allChats.find(c => c.id === currentChatId);
+        if (activeChat) {
+            activeChat.messages.push({ role: 'user', content: text });
+            if (activeChat.messages.length === 1) {
+                activeChat.title = text.substring(0, 10) + (text.length>10?'...':'');
+                renderSidebar();
+            }
+            saveData();
+        }
+        const aiContentDiv = addMessageToUI('ai', '');
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        aiContentDiv.appendChild(cursor);
+        let fullAiResponse = "";
+        try {
+            const response = await fetch(`/ai/chat?prompt=${encodeURIComponent(text)}&chatId=${currentChatId}`);
+            if (!response.ok) throw new Error("API Error");
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                fullAiResponse += decoder.decode(value, { stream: true });
+                aiContentDiv.innerHTML = marked.parse(fullAiResponse);
+                container.scrollTop = container.scrollHeight;
+            }
+            if (activeChat) {
+                activeChat.messages.push({ role: 'ai', content: fullAiResponse });
+                saveData();
+            }
+        } catch (e) {
+            aiContentDiv.innerHTML = "网络连接异常，请重试。";
+        }
+    }
+
+    function addMessageToUI(role, text) {
+        const wrapper = document.createElement('div');
+        wrapper.className = `msg-wrapper ${role}`;
+        wrapper.innerHTML = `<div class="msg-content">${text}</div>`;
+        container.appendChild(wrapper);
+        container.scrollTop = container.scrollHeight;
+        return wrapper.querySelector('.msg-content');
+    }
+
+    function saveData() {
+        localStorage.setItem('ordish_chats', JSON.stringify(allChats));
+        localStorage.setItem('ordish_current_id', currentChatId);
+    }
+
+    input.addEventListener('input', function() {
+        this.style.height = 'auto'; this.style.height = (this.scrollHeight) + 'px';
+        if(this.value === '') this.style.height = 'auto';
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    function toggleTheme() {
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+    }
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        if (window.innerWidth <= 768) sidebar.classList.toggle('active');
+        else sidebar.classList.toggle('collapsed');
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ordish AI Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 针对首页的特定样式覆盖 */
+        body {
+            display: flex; flex-direction: column; min-height: 100vh;
+            background-image: radial-gradient(circle at 50% 0%, var(--bg-hover) 0%, var(--bg-body) 60%);
+        }
+
+        .nav-top {
+            position: absolute; top: 25px; right: 30px; z-index: 10;
+        }
+
+        .landing-container {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; text-align: center;
+        }
+
+        /* 英雄标题区域 */
+        .hero-section { margin-bottom: 60px; animation: fadeInDown 0.8s ease; }
+
+        .hero-title {
+            font-size: 3.5rem; font-weight: 800; margin: 0 0 15px 0; letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--text-main) 30%, var(--text-sub));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .hero-sub {
+            font-size: 1.2rem; color: var(--text-sub); max-width: 500px; margin: 0 auto; line-height: 1.6;
+        }
+
+        /* 功能卡片网格 */
+        .menu-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;
+            width: 100%; max-width: 800px;
+            animation: fadeInUp 0.8s ease 0.2s backwards;
+        }
+
+        .menu-item {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-color);
+            padding: 30px; border-radius: 20px; text-decoration: none;
+            display: flex; align-items: flex-start; gap: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; overflow: hidden;
+        }
+
+        /* 卡片悬停效果 */
+        .menu-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1);
+            background: var(--bg-body);
+            border-color: transparent; /* 让伪元素的渐变边框显示出来 */
+        }
+
+        /* 不同的卡片定义不同的主题色 */
+        .menu-item.chat:hover { border-color: #4dabf7; }
+        .menu-item.interview:hover { border-color: #9775fa; } /* 新增：面试卡片悬停紫色 */
+        .menu-item.game:hover { border-color: #ff8787; }
+        .menu-item.doc:hover { border-color: #69db7c; }
+        .menu-item.tool:hover { border-color: #ffd43b; }
+
+        /* 图标容器 */
+        .icon-box {
+            width: 56px; height: 56px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem; flex-shrink: 0;
+            transition: transform 0.3s ease;
+        }
+
+        /* 各个卡片的图标颜色背景 */
+        .menu-item.chat .icon-box { background: rgba(77, 171, 247, 0.1); color: #228be6; }
+        .menu-item.game .icon-box { background: rgba(255, 135, 135, 0.1); color: #fa5252; }
+        .menu-item.doc .icon-box { background: rgba(105, 219, 124, 0.1); color: #40c057; }
+        .menu-item.tool .icon-box { background: rgba(255, 212, 59, 0.1); color: #fab005; }
+        .menu-item.interview .icon-box { background: rgba(132, 94, 247, 0.1); color: #845ef7; } /* 新增：面试卡片图标柔和紫色 */
+        .menu-item:hover .icon-box { transform: scale(1.1) rotate(5deg); }
+
+        .menu-info { text-align: left; }
+        .menu-info h3 { margin: 0 0 8px 0; font-size: 1.1rem; color: var(--text-main); font-weight: 600; }
+        .menu-info p { margin: 0; font-size: 0.9rem; color: var(--text-sub); line-height: 1.4; }
+
+        /* 动画定义 */
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .hero-title { font-size: 2.2rem; }
+            .menu-grid { grid-template-columns: 1fr; }
+            .menu-item { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="nav-top">
+    <button class="btn-icon" onclick="toggleTheme()" title="切换主题">
+        <i class="fas fa-adjust"></i>
+    </button>
+</div>
+
+<div class="landing-container">
+    <div class="hero-section">
+        <h1 class="hero-title">你好，可以帮到你什么？</h1>
+        <p class="hero-sub">Ordish AI 智能协作平台，连接无限可能</p>
+    </div>
+
+    <div class="menu-grid">
+        <a href="/chat.html" class="menu-item chat">
+            <div class="icon-box"><i class="fas fa-comment-dots"></i></div>
+            <div class="menu-info">
+                <h3>开始对话</h3>
+                <p>通用 AI 助手，基于 DeepSeek 模型解答各类问题</p>
+            </div>
+        </a>
+        <a href="/interview.html" class="menu-item interview">
+            <div class="icon-box">
+                <i class="fas fa-user-tie"></i>
+            </div>
+            <div class="menu-info">
+                <h3>AI 面试官</h3>
+                <p>上传简历，Agent提取技术栈，接受大厂高可用/底层源码级拷问</p>
+            </div>
+        </a>
+        <a href="/game.html" class="menu-item game">
+            <div class="icon-box"><i class="fas fa-gamepad"></i></div>
+            <div class="menu-info">
+                <h3>情景模拟</h3>
+                <p>角色扮演与沟通练习，沉浸式互动体验</p>
+            </div>
+        </a>
+
+        <a href="/doc.html" class="menu-item doc">
+            <div class="icon-box"><i class="fas fa-file-invoice"></i></div>
+            <div class="menu-info">
+                <h3>文档助手</h3>
+                <p>上传 PDF 快速提取摘要，智能问答解析</p>
+            </div>
+        </a>
+
+        <a href="/didi.html" class="menu-item tool">
+            <div class="icon-box" style="background: rgba(255, 125, 65, 0.1); color: #ff7d41;">
+                <i class="fas fa-taxi"></i>
+            </div>
+            <div class="menu-info">
+                <h3>小O滴滴</h3>
+                <p>智能出行助手，对话即可叫车、查单</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+<script>
+    // 纯内存式主题切换（不保存到 localStorage）
+    // 默认优先跟随系统，如果没有则默认 light
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    let currentTheme = prefersDark ? 'dark' : 'light';
+
+    // 初始化设置
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    function toggleTheme() {
+        // 切换状态
+        currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+        // 应用到 DOM
+        document.documentElement.setAttribute('data-theme', currentTheme);
+
+        // 注意：这里已经删除了所有 localStorage.setItem 的代码
+        // 刷新页面后，会重新回到初始状态
+    }
+</script>
+</body>
+</html>

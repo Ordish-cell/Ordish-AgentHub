@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ordish Notebook</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg-app: #131314; --bg-sidebar: #1e1f20; --bg-surface: #2d2e30; --bg-hover: #35363a; --border-subtle: #444746; --text-primary: #e3e3e3; --text-secondary: #c4c7c5; --accent-color: #a8c7fa; --user-msg-bg: #2b2d31; --danger-color: #ff8787; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', "Microsoft YaHei", sans-serif; background-color: var(--bg-app); color: var(--text-primary); height: 100vh; display: flex; overflow: hidden; }
+        .sidebar { width: 280px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; padding: 20px; gap: 15px; flex-shrink: 0; }
+        .brand { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .new-chat-btn { background: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--accent-color); padding: 12px; border-radius: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; transition: all 0.2s; font-weight: 500; }
+        .new-chat-btn:hover { background: var(--bg-hover); border-color: var(--accent-color); }
+        .history-section { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+        .history-title { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 5px; font-weight: 600; }
+        .history-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .history-item:hover { background: var(--bg-hover); }
+        .history-item.active { background: rgba(168, 199, 250, 0.15); color: var(--accent-color); font-weight: 500; }
+        .history-item .delete-icon { opacity: 0; color: var(--text-secondary); font-size: 0.8rem; padding: 4px; }
+        .history-item:hover .delete-icon { opacity: 1; }
+        .history-item .delete-icon:hover { color: var(--danger-color); }
+        .upload-area { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--border-subtle); }
+        .upload-card { border: 1px dashed var(--border-subtle); border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; background: rgba(255,255,255,0.02); transition: all 0.2s; }
+        .upload-card:hover { border-color: var(--accent-color); background: rgba(168, 199, 250, 0.05); }
+        .main-area { flex: 1; display: flex; flex-direction: column; position: relative; }
+        .chat-scroll { flex: 1; padding: 40px 15% 140px 15%; overflow-y: auto; scroll-behavior: smooth; }
+        .message { margin-bottom: 30px; line-height: 1.6; animation: fadeIn 0.3s ease; }
+        .message.user { background-color: var(--user-msg-bg); padding: 12px 20px; border-radius: 20px 20px 4px 20px; margin-left: auto; width: fit-content; max-width: 80%; }
+        .message.ai { padding-left: 16px; border-left: 2px solid var(--accent-color); color: #e3e3e3; }
+        .ai-name { font-size: 0.8rem; color: var(--accent-color); display: block; margin-bottom: 6px; font-weight: 600; }
+        .input-container { position: absolute; bottom: 40px; left: 15%; right: 15%; z-index: 10; }
+        .input-bar { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 28px; padding: 8px 8px 8px 24px; display: flex; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+        .input-field { flex: 1; background: transparent; border: none; color: #fff; font-size: 1rem; outline: none; padding: 8px 0; }
+        .btn-send { width: 40px; height: 40px; border-radius: 50%; border: none; background: #e3e3e3; color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-send:hover { background: var(--accent-color); }
+        .btn-send:disabled { background: #555; cursor: not-allowed; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 1000; display: none; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
+        .modal-box { background: var(--bg-surface); width: 320px; padding: 24px; border-radius: 16px; border: 1px solid var(--border-subtle); box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; transform: scale(0.9); transition: transform 0.2s; }
+        .modal-overlay.active .modal-box { transform: scale(1); }
+        .modal-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; color: var(--text-primary); }
+        .modal-text { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 24px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn { padding: 8px 20px; border-radius: 20px; border: none; cursor: pointer; font-size: 0.9rem; }
+        .modal-btn.cancel { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+        .modal-btn.cancel:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .modal-btn.confirm { background: var(--accent-color); color: #000; font-weight: 600; }
+        .modal-btn.confirm:hover { background: #8ab4f8; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <a href="/" class="brand"><i class="fas fa-arrow-left"></i> Ordish Notebook</a>
+    <button class="new-chat-btn" onclick="createNewSession()"><i class="fas fa-plus"></i> 开启新对话</button>
+    <div class="history-section">
+        <div class="history-title">历史记录</div>
+        <div id="sessionList"></div>
+    </div>
+    <div class="upload-area">
+        <input type="file" id="fileInput" accept=".pdf" style="display: none;" onchange="handleFileUpload(this)">
+        <div class="upload-card" onclick="document.getElementById('fileInput').click()">
+            <i class="fas fa-file-upload" style="font-size: 20px; color: var(--text-secondary); margin-bottom: 8px;"></i>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">上传 PDF 建立索引</div>
+        </div>
+    </div>
+</div>
+
+<div class="main-area">
+    <div class="chat-scroll" id="chatContainer"></div>
+    <div class="input-container">
+        <div class="input-bar">
+            <input type="text" class="input-field" id="userInput" placeholder="向知识库提问..." autocomplete="off" onkeypress="if(event.key==='Enter') sendMessage()">
+            <button class="btn-send" id="sendBtn" onclick="sendMessage()"><i class="fas fa-arrow-up"></i></button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="customModal">
+    <div class="modal-box">
+        <div class="modal-title" id="modalTitle">提示</div>
+        <div class="modal-text" id="modalText">内容</div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+            <button class="modal-btn confirm" id="modalConfirmBtn">确定</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const chatContainer = document.getElementById('chatContainer');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const sessionListEl = document.getElementById('sessionList');
+
+    let sessions = JSON.parse(localStorage.getItem('ordish_sessions')) || [];
+    let currentSessionId = localStorage.getItem('ordish_current_session_id');
+
+    window.onload = () => {
+        if (sessions.length === 0) {
+            createNewSession(false);
+        } else if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
+            currentSessionId = sessions[0].id;
+            localStorage.setItem('ordish_current_session_id', currentSessionId);
+        }
+        renderSessionList();
+        loadHistory(currentSessionId);
+    };
+
+    function createNewSession(refresh = true) {
+        const newId = 'chat_' + Date.now();
+        const newSession = {
+            id: newId,
+            title: '新对话 ' + new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'}),
+            timestamp: Date.now()
+        };
+        sessions.unshift(newSession);
+        saveSessions();
+        currentSessionId = newId;
+        localStorage.setItem('ordish_current_session_id', currentSessionId);
+        if (refresh) {
+            renderSessionList();
+            loadHistory(newId);
+        }
+    }
+
+    function renderSessionList() {
+        sessionListEl.innerHTML = '';
+        sessions.forEach(session => {
+            const div = document.createElement('div');
+            div.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+            div.innerHTML = `
+                <span onclick="switchSession('${session.id}')" style="flex:1; overflow:hidden; text-overflow:ellipsis;">${session.title}</span>
+                <i class="fas fa-trash-alt delete-icon" onclick="confirmDelete('${session.id}', event)"></i>
+            `;
+            sessionListEl.appendChild(div);
+        });
+    }
+
+    function switchSession(id) {
+        if (currentSessionId === id) return;
+        currentSessionId = id;
+        localStorage.setItem('ordish_current_session_id', id);
+        renderSessionList();
+        loadHistory(id);
+    }
+
+    function confirmDelete(id, event) {
+        event.stopPropagation();
+        showModal('删除对话', '确定要删除这条对话记录吗？', () => {
+            sessions = sessions.filter(s => s.id !== id);
+            saveSessions();
+            // 清除该会话的文件记录
+            localStorage.removeItem('ordish_doc_files_' + id);
+
+            if (id === currentSessionId) {
+                if (sessions.length > 0) switchSession(sessions[0].id);
+                else createNewSession();
+            } else {
+                renderSessionList();
+            }
+            fetch(`/doc/clear?chatId=${id}`);
+        });
+    }
+
+    function saveSessions() {
+        localStorage.setItem('ordish_sessions', JSON.stringify(sessions));
+    }
+
+    async function loadHistory(id) {
+        chatContainer.innerHTML = '';
+
+        // 显示当前会话已上传的文件（模拟显示）
+        const files = JSON.parse(localStorage.getItem('ordish_doc_files_' + id) || '[]');
+        if (files.length > 0) {
+            addAiMsg(`📚 当前会话已包含文档：${files.join(', ')}`);
+        } else {
+            addAiMsg("👋 你好！我是文档助手。请上传 PDF 开始提问。");
+        }
+
+        try {
+            const res = await fetch(`/doc/history?chatId=${id}`);
+            if (res.ok) {
+                const history = await res.json();
+                history.forEach(msg => {
+                    if (msg.role === 'user') addUserMsg(msg.content);
+                    else addAiMsg(msg.content);
+                });
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    // ★★★ 修复后的上传逻辑 ★★★
+    async function handleFileUpload(input) {
+        if (input.files.length === 0) return;
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // 界面显示正在上传
+        addAiMsg(`⏳ 正在解析 ${file.name}，请稍候...`);
+
+        try {
+            // 【重点】这里拼上了 chatId=${currentSessionId}
+            const res = await fetch(`/doc/upload?chatId=${currentSessionId}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (res.ok) {
+                addAiMsg(`✅ 文档 **${file.name}** 已绑定到当前会话！`);
+                // 记录文件名到本地存储
+                let files = JSON.parse(localStorage.getItem('ordish_doc_files_' + currentSessionId) || '[]');
+                if (!files.includes(file.name)) {
+                    files.push(file.name);
+                    localStorage.setItem('ordish_doc_files_' + currentSessionId, JSON.stringify(files));
+                }
+            } else {
+                const err = await res.text();
+                addAiMsg(`❌ 上传失败: ${err}`);
+            }
+        } catch (e) {
+            addAiMsg(`❌ 网络错误: ${e.message}`);
+        }
+        // 清空 input 防止同名文件无法再次触发 onchange
+        input.value = '';
+    }
+
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        // 更新标题
+        const currentSession = sessions.find(s => s.id === currentSessionId);
+        if (currentSession && currentSession.title.startsWith('新对话')) {
+            currentSession.title = text.length > 10 ? text.substring(0, 10) + '...' : text;
+            saveSessions();
+            renderSessionList();
+        }
+
+        addUserMsg(text);
+        userInput.value = '';
+        sendBtn.disabled = true;
+
+        const loadingId = Date.now();
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message ai';
+        loadingDiv.id = loadingId;
+        loadingDiv.innerHTML = `<span class="ai-name">Notebook AI</span><i class="fas fa-circle-notch fa-spin"></i> 思考中...`;
+        chatContainer.appendChild(loadingDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        try {
+            // 发送请求带上 chatId
+            const response = await fetch(`/doc/chat?query=${encodeURIComponent(text)}&chatId=${currentSessionId}`);
+
+            if (!response.ok) throw new Error("服务器繁忙");
+
+            const answer = await response.text();
+            document.getElementById(loadingId).remove();
+            addAiMsg(answer);
+
+        } catch (e) {
+            document.getElementById(loadingId).innerHTML = `<span class="ai-name">Notebook AI</span><span style="color:#ff8787">${e.message}</span>`;
+        } finally {
+            sendBtn.disabled = false;
+        }
+    }
+
+    // Modal & Utils
+    const modal = document.getElementById('customModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalText = document.getElementById('modalText');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    let confirmCallback = null;
+
+    function showModal(title, text, onConfirm) {
+        modalTitle.innerText = title;
+        modalText.innerText = text;
+        confirmCallback = onConfirm;
+        modal.style.display = 'flex';
+        setTimeout(() => modal.classList.add('active'), 10);
+    }
+    function closeModal() {
+        modal.classList.remove('active');
+        setTimeout(() => modal.style.display = 'none', 200);
+        confirmCallback = null;
+    }
+    confirmBtn.onclick = () => { if (confirmCallback) confirmCallback(); closeModal(); };
+
+    function addUserMsg(text) {
+        const div = document.createElement('div');
+        div.className = 'message user';
+        div.innerText = text;
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    function addAiMsg(text) {
+        const div = document.createElement('div');
+        div.className = 'message ai';
+        div.innerHTML = `<span class="ai-name">Notebook AI</span>${text.replace(/\n/g, '<br>')}`;
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+</script>
+</body>
+</html>

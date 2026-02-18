@@ -1,0 +1,40 @@
+:root {
+    /* 默认亮色主题 (Light Mode) - 极简科技风 */
+    --bg-body: #ffffff;
+    --bg-sidebar: #f8f9fa;
+    --bg-hover: #e9ecef;
+    --text-main: #202124;
+    --text-sub: #5f6368;
+    --border-color: #dadce0;
+    --input-bg: #f1f3f4;
+    --user-msg-bg: #005cff; /* 科技蓝 */
+    --user-msg-text: #ffffff;
+    --ai-msg-bg: #f1f3f4;
+    --ai-msg-text: #202124;
+    --accent-color: #005cff;
+    --shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+[data-theme="dark"] {
+    /* 暗色主题 (Dark Mode) - 深邃科技风 */
+    --bg-body: #131314; /* Gemini 深色背景 */
+    --bg-sidebar: #1e1f20;
+    --bg-hover: #333537;
+    --text-main: #e3e3e3;
+    --text-sub: #9aa0a6;
+    --border-color: #444746;
+    --input-bg: #1e1f20;
+    --user-msg-bg: #a8c7fa; /* 柔和的亮蓝 */
+    --user-msg-text: #0b57d0;
+    --ai-msg-bg: #333537;
+    --ai-msg-text: #e3e3e3;
+    --accent-color: #8ab4f8;
+    --shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+* { box-sizing: border-box; transition: background-color 0.3s, color 0.1s; }
+body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg-body); color: var(--text-main); height: 100vh; overflow: hidden; }
+
+/* 通用按钮样式 */
+.btn-icon { background: none; border: none; cursor: pointer; color: var(--text-sub); padding: 8px; border-radius: 50%; font-size: 1.1rem; }
+.btn-icon:hover { background-color: var(--bg-hover); color: var(--text-main); }

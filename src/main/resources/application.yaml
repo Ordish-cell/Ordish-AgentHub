@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: ordish-ai
+  datasource:
+    url: jdbc:mysql://localhost:3306/ordishai?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root          # 改成你的数据库账号
+    password: 123456          # 改成你的数据库密码
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
+      chat:
+        options:
+          model: deepseek-r1
+      embedding:
+        options:
+          model: text-embedding-v3
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: debug
+    com.ordish.ai: debug

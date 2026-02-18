@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>情景模拟</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        /* --- 动态主题变量 --- */
+        :root[data-theme="light"] {
+            --bg-gradient: linear-gradient(135deg, #f0f7ff 0%, #e6efff 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --header-bg: rgba(255, 255, 255, 0.8);
+            --primary-color: #81d4fa;
+            --primary-text: #4ba3c7;
+            --text-main: #37474f;
+            --text-sub: #78909c;
+            --bubble-user: #e1f5fe;
+            --bubble-ai: #ffffff;
+            --shadow-soft: 0 10px 30px rgba(129, 212, 250, 0.2);
+            --input-bg: #f8fdff;
+            --border-color: #e1f5fe;
+        }
+
+        :root[data-theme="dark"] {
+            --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --card-bg: rgba(30, 30, 46, 0.95);
+            --header-bg: rgba(26, 26, 46, 0.8);
+            --primary-color: #e94560; /* 夜间模式用一点霓虹红/粉 */
+            --primary-text: #ff8a9d;
+            --text-main: #e0e0e0;
+            --text-sub: #a0a0a0;
+            --bubble-user: #2d3452; /* 深蓝紫 */
+            --bubble-ai: #252538;   /* 深灰 */
+            --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.5);
+            --input-bg: #252538;
+            --border-color: #3f3f5f;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Nunito', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+            overflow: hidden;
+            transition: background 0.5s ease;
+        }
+
+        /* --- 头部导航 (增加毛玻璃) --- */
+        .header-bar {
+            width: 100%; max-width: 800px; padding: 15px 25px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-sizing: border-box; z-index: 10;
+            background: var(--header-bg);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky; top: 0;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .role-info {
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .role-name { font-size: 1.1rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 5px; }
+        .role-status { font-size: 0.75rem; color: var(--primary-text); display: flex; align-items: center; gap: 4px; }
+        .status-dot { width: 6px; height: 6px; background: #4caf50; border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* 主题切换按钮 */
+        .theme-btn {
+            background: transparent; border: none; color: var(--text-main);
+            font-size: 1.2rem; cursor: pointer; padding: 8px; border-radius: 50%;
+            transition: all 0.3s;
+        }
+        .theme-btn:hover { background: var(--border-color); transform: rotate(15deg); }
+
+        /* --- 好感度小组件 --- */
+        .favorability-widget {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--input-bg); padding: 5px 12px; border-radius: 15px;
+            border: 1px solid var(--border-color);
+        }
+        .heart-icon { color: #ff4081; animation: heartbeat 1.5s infinite; }
+        @keyframes heartbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+        .fav-score { font-size: 0.85rem; font-weight: bold; color: var(--text-main); }
+
+        /* --- 聊天容器 --- */
+        .chat-container {
+            flex: 1; width: 100%; max-width: 800px;
+            display: flex; flex-direction: column; overflow: hidden;
+            position: relative;
+        }
+
+        .messages-area {
+            flex: 1; padding: 20px; overflow-y: auto; scroll-behavior: smooth;
+        }
+        .messages-area::-webkit-scrollbar { width: 5px; }
+        .messages-area::-webkit-scrollbar-thumb { background: var(--text-sub); border-radius: 10px; opacity: 0.5; }
+
+        /* --- 气泡样式 --- */
+        .message-row {
+            display: flex; margin-bottom: 20px; opacity: 0;
+            animation: slideUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            gap: 12px;
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .message-row.user { flex-direction: row-reverse; }
+
+        /* 头像 */
+        .avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .avatar.ai { background: #fff; color: var(--primary-color); border: 1px solid var(--primary-color); }
+        .avatar.user { background: var(--primary-color); color: #fff; }
+
+        .bubble {
+            max-width: 70%; padding: 12px 16px; border-radius: 18px;
+            line-height: 1.6; font-size: 0.95rem; position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            background-color: var(--bubble-ai); color: var(--text-main);
+        }
+        .message-row.user .bubble {
+            background-color: var(--bubble-user);
+            border-top-right-radius: 4px;
+        }
+        .message-row.ai .bubble {
+            border-top-left-radius: 4px;
+        }
+
+        /* --- 输入区域 --- */
+        .input-wrapper {
+            padding: 20px; background: var(--header-bg);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
+            display: flex; gap: 10px; align-items: center;
+            width: 100%; max-width: 800px;
+            border-radius: 20px 20px 0 0;
+        }
+        #promptInput {
+            flex: 1; padding: 12px 20px;
+            background: var(--input-bg); border: 2px solid var(--border-color);
+            border-radius: 25px; font-size: 0.95rem; outline: none;
+            color: var(--text-main); transition: all 0.3s;
+        }
+        #promptInput:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(129, 212, 250, 0.1); }
+
+        .btn-group { display: flex; gap: 8px; }
+        .action-btn {
+            width: 45px; height: 45px; border-radius: 50%; border: none;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; transition: transform 0.2s;
+        }
+        .btn-send { background: var(--primary-color); color: #fff; }
+        .btn-reset { background: var(--input-bg); color: var(--text-sub); border: 1px solid var(--border-color); }
+        .action-btn:hover { transform: scale(1.1); }
+
+        /* 打字动画 */
+        .typing .dot { background: var(--text-sub); width: 6px; height: 6px; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite ease-in-out both; margin: 0 2px; }
+        .typing .dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+<div class="header-bar">
+    <a href="/index.html" class="theme-btn" title="返回"><i class="fas fa-chevron-left"></i></a>
+
+    <div class="role-info">
+        <div class="role-name">❄ <span class="status-dot"></span></div>
+        <div class="role-status">傲娇模式 ON</div>
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="favorability-widget">
+            <i class="fas fa-heart heart-icon"></i>
+            <span class="fav-score">Lv.1</span>
+        </div>
+        <button class="theme-btn" onclick="toggleTheme()" title="切换主题">
+            <i class="fas fa-adjust"></i>
+        </button>
+    </div>
+</div>
+
+<div class="chat-container">
+    <div class="messages-area" id="messagesArea">
+        <div class="message-row ai">
+            <div class="avatar ai"><i class="fas fa-snowflake"></i></div>
+            <div class="bubble">喂，大笨蛋，今天又想说什么？如果是无聊的话题我可不回哦。😒</div>
+        </div>
+    </div>
+
+    <div class="input-wrapper">
+        <input type="text" id="promptInput" placeholder="逗她一下..." autocomplete="off">
+        <div class="btn-group">
+            <button class="action-btn btn-reset" onclick="confirmReset()" title="重置剧情"><i class="fas fa-redo"></i></button>
+            <button class="action-btn btn-send" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 主题切换逻辑 ---
+    // 优先读取本地存储，否则跟随系统
+    let currentTheme = localStorage.getItem('ordish_theme') ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    function toggleTheme() {
+        currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        localStorage.setItem('ordish_theme', currentTheme);
+    }
+
+    // --- 聊天逻辑 ---
+    const messagesArea = document.getElementById('messagesArea');
+    const promptInput = document.getElementById('promptInput');
+    const GAME_CHAT_ID = "game_save_slot_1";
+
+    promptInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+    async function sendMessage() {
+        const text = promptInput.value.trim();
+        if (!text) return;
+
+        appendMessage('user', text);
+        promptInput.value = '';
+
+        // AI 正在输入状态
+        const loadingId = Date.now();
+        appendMessage('ai', '<div class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>', loadingId);
+
+        let fullText = '';
+        try {
+            const response = await fetch(`/ai/game?prompt=${encodeURIComponent(text)}&chatId=${GAME_CHAT_ID}`);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let isFirst = true;
+
+            const bubbleDiv = document.getElementById('bubble-' + loadingId);
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (isFirst) { bubbleDiv.innerHTML = ''; isFirst = false; }
+
+                fullText += decoder.decode(value, { stream: true });
+                bubbleDiv.innerHTML = marked.parse(fullText);
+                scrollToBottom();
+            }
+        } catch (err) {
+            document.getElementById('bubble-' + loadingId).innerText = "（信号不好，她没听清...）";
+        }
+    }
+
+    function appendMessage(role, html, id = null) {
+        const row = document.createElement('div');
+        row.className = `message-row ${role}`;
+
+        const avatar = document.createElement('div');
+        avatar.className = `avatar ${role}`;
+        avatar.innerHTML = role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-snowflake"></i>';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        if (id) bubble.id = 'bubble-' + id;
+        bubble.innerHTML = html;
+
+        if (role === 'ai') { row.appendChild(avatar); row.appendChild(bubble); }
+        else { row.appendChild(bubble); row.appendChild(avatar); }
+
+        messagesArea.appendChild(row);
+        scrollToBottom();
+    }
+
+    function scrollToBottom() { messagesArea.scrollTop = messagesArea.scrollHeight; }
+
+    async function confirmReset() {
+        if(confirm("确定要重置剧情吗？好感度会清零哦！")) {
+            await fetch(`/ai/game/reset?chatId=${GAME_CHAT_ID}`, { method: 'DELETE' });
+            location.reload();
+        }
+    }
+</script>
+</body>
+</html>
