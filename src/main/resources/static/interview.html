@@ -101,10 +101,12 @@
         try {
             const res = await fetch(`/interview/history?chatId=${chatId}`);
             if (res.ok) {
-                const history = await res.json();
-                // 过滤掉我们自己存的纯文本脏数据（带 JSON 的字符串）
-                const validHistory = history.filter(msg => !msg.content.startsWith('{"'));
-                validHistory.forEach(msg => appendMsg(msg.role, msg.content));
+                const responseData = await res.json();
+                // 【企业级适配】：读取 responseData.data
+                if(responseData.code === 200 && responseData.data) {
+                    const validHistory = responseData.data.filter(msg => !msg.content.startsWith('{"'));
+                    validHistory.forEach(msg => appendMsg(msg.role, msg.content));
+                }
             }
         } catch (e) {}
     }
@@ -118,8 +120,13 @@
 
         try {
             const res = await fetch(`/interview/upload?chatId=${chatId}`, { method: 'POST', body: formData });
-            const text = await res.text();
-            appendMsg('ai', res.ok ? text : `解析异常: ${text}`);
+            if(res.ok) {
+                const responseData = await res.json();
+                // 【企业级适配】：读取 responseData.data
+                appendMsg('ai', responseData.code === 200 ? responseData.data : `解析异常: ${responseData.message}`);
+            } else {
+                appendMsg('ai', "服务器异常。");
+            }
         } catch (e) { appendMsg('ai', "网络似乎有点问题。"); }
     }
 
@@ -134,6 +141,18 @@
 
         try {
             const response = await fetch(`/interview/chat?query=${encodeURIComponent(text)}&chatId=${chatId}`);
+
+            // 【美化拦截】判断是否触发了全局异常（限流）
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const errorData = await response.json();
+                document.getElementById('bubble-' + loadingId).innerHTML = `
+                    <div style="color: #fa5252; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-ban"></i> ${errorData.message}
+                    </div>`;
+                return;
+            }
+
             const answer = await response.text();
             document.getElementById('bubble-' + loadingId).innerHTML = marked.parse(answer);
         } catch (e) {

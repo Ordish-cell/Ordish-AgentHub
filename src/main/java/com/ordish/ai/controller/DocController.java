@@ -1,5 +1,7 @@
 package com.ordish.ai.controller;
 
+import com.ordish.ai.annotation.RateLimit; // 引入限流注解
+import com.ordish.ai.common.CommonResult; // 引入企业级规范
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
@@ -36,46 +38,40 @@ public class DocController {
         this.chatMemory = chatMemory;
     }
 
-    /**
-     * 上传接口：【关键修复】增加了 chatId 参数
-     */
+    // 1. 【企业级改造】：用 CommonResult 包装上传返回值
     @PostMapping("/upload")
-    public String upload(@RequestParam("file") MultipartFile file,
-                         @RequestParam("chatId") String chatId) throws Exception { // 👈 必须要有这个参数
+    public CommonResult<String> upload(@RequestParam("file") MultipartFile file,
+                                       @RequestParam("chatId") String chatId) throws Exception {
 
         PagePdfDocumentReader reader = new PagePdfDocumentReader(file.getResource());
         List<Document> documents = reader.get();
-        if (documents == null || documents.isEmpty()) return "错误：无法读取 PDF 内容";
+        if (documents == null || documents.isEmpty()) return CommonResult.error(500, "错误：无法读取 PDF 内容");
 
         TokenTextSplitter splitter = new TokenTextSplitter();
         List<Document> splitDocuments = splitter.apply(documents);
-        if (splitDocuments.isEmpty()) return "错误：PDF 拆分后内容为空";
+        if (splitDocuments.isEmpty()) return CommonResult.error(500, "错误：PDF 拆分后内容为空");
 
-        // 【核心逻辑】给文档打上“防伪标签”，只属于当前 chatId
         for (Document doc : splitDocuments) {
             doc.getMetadata().put("chatId", chatId);
         }
 
         vectorStore.add(splitDocuments);
 
-        // 持久化保存
         if (vectorStore instanceof SimpleVectorStore) {
             ((SimpleVectorStore) vectorStore).save(new File("vector_store.json"));
         }
 
-        return "上传成功！文档已绑定到当前会话。";
+        return CommonResult.success("上传成功！文档已绑定到当前会话。");
     }
 
-    /**
-     * 对话接口：【关键修复】增加了 filterExpression 过滤
-     */
-    @GetMapping("/chat")
+    // 2. 【核心装甲】：防刷大模型 Token！
+    @RateLimit(time = 60, count = 10)
+    @GetMapping(value = "/chat", produces = "text/html;charset=utf-8")
     public String chat(@RequestParam String query, @RequestParam String chatId) {
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(query)
                 .topK(3)
                 .similarityThreshold(0.1)
-                // 【核心逻辑】只允许检索“防伪标签”等于当前 chatId 的内容
                 .filterExpression("chatId == '" + chatId + "'")
                 .build();
 
@@ -89,20 +85,21 @@ public class DocController {
                 .content();
     }
 
-    // 历史记录接口（不变）
+    // 3. 【企业级改造】：规范历史记录返回
     @GetMapping("/history")
-    public List<Map<String, String>> getHistory(@RequestParam String chatId) {
+    public CommonResult<List<Map<String, String>>> getHistory(@RequestParam String chatId) {
         List<Message> messages = chatMemory.get(chatId, 100);
-        return messages.stream().map(msg -> {
+        List<Map<String, String>> history = messages.stream().map(msg -> {
             String role = (msg instanceof UserMessage) ? "user" : "ai";
             return Map.of("role", role, "content", msg.getText());
         }).collect(Collectors.toList());
+        return CommonResult.success(history);
     }
 
-    // 清空接口（不变）
+    // 4. 【企业级改造】：规范清空操作返回
     @GetMapping("/clear")
-    public String clearHistory(@RequestParam String chatId) {
+    public CommonResult<String> clearHistory(@RequestParam String chatId) {
         chatMemory.clear(chatId);
-        return "success";
+        return CommonResult.success("success");
     }
 }

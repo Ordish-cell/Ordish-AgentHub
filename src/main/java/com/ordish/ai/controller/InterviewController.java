@@ -1,5 +1,7 @@
 package com.ordish.ai.controller;
 
+import com.ordish.ai.annotation.RateLimit; // 引入限流注解
+import com.ordish.ai.common.CommonResult; // 引入企业级规范
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -32,20 +34,21 @@ public class InterviewController {
     private final VectorStore vectorStore;
     private final ChatMemory chatMemory;
 
+    // 【企业级改造】
     @PostMapping("/upload")
-    public String uploadResume(@RequestParam("file") MultipartFile file,
-                               @RequestParam("chatId") String chatId) throws Exception {
+    public CommonResult<String> uploadResume(@RequestParam("file") MultipartFile file,
+                                             @RequestParam("chatId") String chatId) throws Exception {
 
         PagePdfDocumentReader reader = new PagePdfDocumentReader(file.getResource());
         List<Document> documents = reader.get();
-        if (documents == null || documents.isEmpty()) return "错误：无法读取简历内容";
+        if (documents == null || documents.isEmpty()) return CommonResult.error(500, "错误：无法读取简历内容");
 
         TokenTextSplitter splitter = new TokenTextSplitter();
         List<Document> splitDocuments = splitter.apply(documents);
 
         for (Document doc : splitDocuments) {
             doc.getMetadata().put("chatId", chatId);
-            doc.getMetadata().put("type", "resume"); // 增加简历标识
+            doc.getMetadata().put("type", "resume");
         }
 
         vectorStore.add(splitDocuments);
@@ -53,18 +56,17 @@ public class InterviewController {
             ((SimpleVectorStore) vectorStore).save(new File("vector_store.json"));
         }
 
-        return "简历解析完毕。面试官已拿着你的简历就位，深呼吸，说句“面试官好”开始吧。";
+        return CommonResult.success("简历解析完毕。面试官已拿着你的简历就位，深呼吸，说句“面试官好”开始吧。");
     }
 
+    // 【核心装甲】：防止恶意刷面试题
+    @RateLimit(time = 60, count = 10)
     @GetMapping(value = "/chat", produces = "text/html;charset=utf-8")
     public String chat(@RequestParam String query, @RequestParam String chatId) {
 
-        // 【架构师级修复】：意图路由 (Intent Routing)
-        // 判断用户是不是在求助、认怂、或者顺着聊天
         boolean isAskingForHelp = query.matches(".*(不会|不懂|解答|讲|解释|答案|继续|下一题|懂了).*");
 
         if (isAskingForHelp) {
-            // 如果用户在求教或走流程，【绝对不查询简历库】，彻底断绝简历长文本的干扰！
             String pureInstruction = query + "\n\n【系统最高指令】：用户当前处于互动/求教状态。请立刻收起一切提问冲动！充分调用你的先验知识为他解答，或者顺应他的话往下走。绝对禁止在此刻长篇大论地抛出新问题！";
 
             return interviewerClient.prompt()
@@ -74,10 +76,9 @@ public class InterviewController {
                     .content();
         }
 
-        // 只有当用户真的需要被提问时，才触发 RAG 查询简历
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(query)
-                .topK(3) // 减少干扰，只取前3个最相关的片段
+                .topK(3)
                 .similarityThreshold(0.1)
                 .filterExpression("chatId == '" + chatId + "' && type == 'resume'")
                 .build();
@@ -100,18 +101,21 @@ public class InterviewController {
                 .content();
     }
 
+    // 【企业级改造】
     @GetMapping("/history")
-    public List<Map<String, String>> getHistory(@RequestParam String chatId) {
+    public CommonResult<List<Map<String, String>>> getHistory(@RequestParam String chatId) {
         List<Message> messages = chatMemory.get(chatId, 100);
-        return messages.stream().map(msg -> {
+        List<Map<String, String>> history = messages.stream().map(msg -> {
             String role = (msg instanceof UserMessage) ? "user" : "ai";
             return Map.of("role", role, "content", msg.getText());
         }).collect(Collectors.toList());
+        return CommonResult.success(history);
     }
 
+    // 【企业级改造】
     @GetMapping("/clear")
-    public String clearHistory(@RequestParam String chatId) {
+    public CommonResult<String> clearHistory(@RequestParam String chatId) {
         chatMemory.clear(chatId);
-        return "success";
+        return CommonResult.success("success");
     }
 }

@@ -20,6 +20,12 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
+  data:
+    redis:
+      host: 192.168.170.132  # 例如 192.168.1.100 或公网IP
+      port: 6379
+      password: 123456 # 如果没设密码就留空或者删掉这一行
+      database: 0
 logging:
   level:
     org.springframework.ai.chat.client.advisor: debug

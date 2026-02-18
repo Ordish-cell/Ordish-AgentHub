@@ -224,9 +224,13 @@
     async function sendMessage() {
         const text = input.value.trim();
         if (!text) return;
+
+        // 1. 渲染用户输入
         addMessageToUI('user', text);
         input.value = '';
         input.style.height = 'auto';
+
+        // 2. 保存用户消息到本地记录
         const activeChat = allChats.find(c => c.id === currentChatId);
         if (activeChat) {
             activeChat.messages.push({ role: 'user', content: text });
@@ -236,13 +240,32 @@
             }
             saveData();
         }
+
+        // 3. 准备渲染 AI 的气泡
         const aiContentDiv = addMessageToUI('ai', '');
         const cursor = document.createElement('span');
         cursor.className = 'cursor';
         aiContentDiv.appendChild(cursor);
         let fullAiResponse = "";
+
         try {
             const response = await fetch(`/ai/chat?prompt=${encodeURIComponent(text)}&chatId=${currentChatId}`);
+
+            // 【核心修复：拦截 JSON 错误信息，美化 UI】
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const errorData = await response.json();
+                // 渲染一个带图标的、美观的红色提示框
+                aiContentDiv.innerHTML = `
+                    <div style="background-color: rgba(255, 77, 79, 0.1); border: 1px solid #ff4d4f; color: #ff4d4f; padding: 10px 16px; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.95rem;">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>系统拦截：${errorData.message}</span>
+                    </div>
+                `;
+                return; // 遇到报错就直接结束，不再往下走流式读取
+            }
+
+            // 【正常的 AI 流式读取逻辑】
             if (!response.ok) throw new Error("API Error");
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -251,14 +274,20 @@
                 if (done) break;
                 fullAiResponse += decoder.decode(value, { stream: true });
                 aiContentDiv.innerHTML = marked.parse(fullAiResponse);
-                container.scrollTop = container.scrollHeight;
+                document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
             }
+
+            // 保存 AI 回复到本地记录
             if (activeChat) {
                 activeChat.messages.push({ role: 'ai', content: fullAiResponse });
                 saveData();
             }
         } catch (e) {
-            aiContentDiv.innerHTML = "网络连接异常，请重试。";
+            // 网络异常的美化
+            aiContentDiv.innerHTML = `
+                <div style="color: var(--text-sub); display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem;">
+                    <i class="fas fa-wifi"></i> 网络连接异常，请检查后端服务是否启动。
+                </div>`;
         }
     }
 

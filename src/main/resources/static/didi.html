@@ -248,17 +248,28 @@
         let fullText = '';
         try {
             const response = await fetch(`/ai/didi?prompt=${encodeURIComponent(text)}&chatId=${DIDI_CHAT_ID}`);
+
+            // 【美化拦截】判断是否触发了全局异常（限流）
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const errorData = await response.json();
+                const bubbleDiv = document.getElementById('bubble-' + loadingId);
+                bubbleDiv.innerHTML = `
+                    <div style="color: var(--primary-orange); font-weight: bold; border-left: 3px solid var(--primary-orange); padding-left: 8px;">
+                        <i class="fas fa-exclamation-triangle"></i> 调度系统忙：${errorData.message}
+                    </div>`;
+                return;
+            }
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let isFirst = true;
-
             const bubbleDiv = document.getElementById('bubble-' + loadingId);
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
                 if (isFirst) { bubbleDiv.innerHTML = ''; isFirst = false; }
-
                 fullText += decoder.decode(value, { stream: true });
                 bubbleDiv.innerHTML = marked.parse(fullText);
                 messagesArea.scrollTop = messagesArea.scrollHeight;

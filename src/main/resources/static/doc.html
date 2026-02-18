@@ -172,8 +172,6 @@
 
     async function loadHistory(id) {
         chatContainer.innerHTML = '';
-
-        // 显示当前会话已上传的文件（模拟显示）
         const files = JSON.parse(localStorage.getItem('ordish_doc_files_' + id) || '[]');
         if (files.length > 0) {
             addAiMsg(`📚 当前会话已包含文档：${files.join(', ')}`);
@@ -184,11 +182,14 @@
         try {
             const res = await fetch(`/doc/history?chatId=${id}`);
             if (res.ok) {
-                const history = await res.json();
-                history.forEach(msg => {
-                    if (msg.role === 'user') addUserMsg(msg.content);
-                    else addAiMsg(msg.content);
-                });
+                const responseData = await res.json();
+                // 【企业级适配】：读取 responseData.data
+                if(responseData.code === 200 && responseData.data) {
+                    responseData.data.forEach(msg => {
+                        if (msg.role === 'user') addUserMsg(msg.content);
+                        else addAiMsg(msg.content);
+                    });
+                }
             }
         } catch (e) { console.error(e); }
     }
@@ -199,33 +200,33 @@
         const file = input.files[0];
         const formData = new FormData();
         formData.append("file", file);
-
-        // 界面显示正在上传
         addAiMsg(`⏳ 正在解析 ${file.name}，请稍候...`);
 
         try {
-            // 【重点】这里拼上了 chatId=${currentSessionId}
             const res = await fetch(`/doc/upload?chatId=${currentSessionId}`, {
                 method: 'POST',
                 body: formData
             });
 
             if (res.ok) {
-                addAiMsg(`✅ 文档 **${file.name}** 已绑定到当前会话！`);
-                // 记录文件名到本地存储
-                let files = JSON.parse(localStorage.getItem('ordish_doc_files_' + currentSessionId) || '[]');
-                if (!files.includes(file.name)) {
-                    files.push(file.name);
-                    localStorage.setItem('ordish_doc_files_' + currentSessionId, JSON.stringify(files));
+                const responseData = await res.json();
+                // 【企业级适配】：判断 code === 200
+                if(responseData.code === 200) {
+                    addAiMsg(`✅ 文档 **${file.name}** 已绑定到当前会话！`);
+                    let files = JSON.parse(localStorage.getItem('ordish_doc_files_' + currentSessionId) || '[]');
+                    if (!files.includes(file.name)) {
+                        files.push(file.name);
+                        localStorage.setItem('ordish_doc_files_' + currentSessionId, JSON.stringify(files));
+                    }
+                } else {
+                    addAiMsg(`❌ 上传失败: ${responseData.message}`);
                 }
             } else {
-                const err = await res.text();
-                addAiMsg(`❌ 上传失败: ${err}`);
+                addAiMsg(`❌ 服务器错误`);
             }
         } catch (e) {
             addAiMsg(`❌ 网络错误: ${e.message}`);
         }
-        // 清空 input 防止同名文件无法再次触发 onchange
         input.value = '';
     }
 
@@ -254,8 +255,19 @@
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
         try {
-            // 发送请求带上 chatId
             const response = await fetch(`/doc/chat?query=${encodeURIComponent(text)}&chatId=${currentSessionId}`);
+
+            // 【美化拦截】
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const errorData = await response.json();
+                document.getElementById(loadingId).innerHTML = `
+                    <div style="background-color: rgba(255, 77, 79, 0.1); border: 1px solid #ff4d4f; color: #ff4d4f; padding: 10px 16px; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.95rem; margin-top: 10px;">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>系统拦截：${errorData.message}</span>
+                    </div>`;
+                return;
+            }
 
             if (!response.ok) throw new Error("服务器繁忙");
 
